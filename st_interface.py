@@ -26,7 +26,7 @@ with col1:
                 """, unsafe_allow_html=True)
 with col2:
     st.markdown("""
-                <a href="https://github.com/Bennyzaionz?tab=projects" target="_blank">
+                <a href="https://github.com/Bennyzaionz" target="_blank">
                     <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="50" alt="github">
                 </a>
                 """, unsafe_allow_html=True)
