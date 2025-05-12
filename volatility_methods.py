@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from arch import arch_model
 
 def compute_returns(stock_data, method:str="log"):
     
@@ -47,17 +46,3 @@ def compute_ewma_volatility(stock_data, method:str="log"):
     annualized_volatility = daily_volatility * np.sqrt(252)
 
     return annualized_volatility
-
-def compute_garch_volatility(stock_data, method:str="log"):
-
-    returns = compute_returns(stock_data, method)
-
-    # multiply by 100 for garch model performance, divide again later
-    model = arch_model(returns["Returns"].dropna(), vol='Garch', p=1, q=1)
-    res = model.fit(disp="off")
-    forecast = res.forecast(horizon=5)
-    vol_forecast = np.sqrt(forecast.variance.iloc[-1].values[0])
-
-    return vol_forecast
-
-    # return annualized_volatility
