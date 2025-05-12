@@ -1,7 +1,7 @@
 import yfinance as yf
 import datetime as dt
 import pandas as pd
-from volatility_methods import compute_std_dev, compute_ewma_volatility, compute_garch_volatility
+from volatility_methods import compute_std_dev, compute_ewma_volatility
 
 def ticker_exists(ticker_symbol):
 
