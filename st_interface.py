@@ -11,6 +11,7 @@ st.title("Black-Scholes Option Pricing")
 
 st.info("Compute the **risk neutral** price of call and put options on any stock for "
         "**varying strike prices and expirations** under the **Black-Scholes model**. "
+        "Display any of the 5 main **Greeks** for each option, or focus in on a single option. "
         "Enter a ticker symbol and adjust the parameters on the left to get started")
 
 st.markdown("---")
