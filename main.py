@@ -1,29 +1,31 @@
 from stock_data import get_bs_parameters
-from plots import plot_option_prices, plot_pnl
+# from plots import plot_option_prices, plot_pnl
 from options import compute_pnl
+import yfinance as yf
+import datetime as dt
+import numpy as np
+from dateutil.relativedelta import relativedelta
 
-# ticker = 'NVDA'
+# Get options chain for a stock (e.g., AAPL)
+# ticker = yf.Ticker("AAPL")
 
-# scale = "year"
+# expirations = ticker.options
 
-# valid_input = False
+# print(type(expirations))
+# print("Available expirations:", expirations)
 
-# while not valid_input:
-    
-#     ticker = input("\nPlease input the ticker symbol for a stock you'd like to price options for:\n\n")
+# Get calls and puts for a specific expiration
+# opt = ticker.option_chain(expirations[0])
+# print(opt.calls.head())
+# print(opt.puts.head())
 
-#     print(" ")
+# print(opt.calls['strike'])
 
-#     r, sigma, S = get_bs_parameters(ticker=ticker, volatility_method='log ewma')
 
-#     valid_input = False if r == -1 else True
+# today = dt.today()
 
-# scale = input("Please input the time scale for the expiration dates you are interested in (day, week, month, quarter, year)\n\n")
+a = np.arange(1, 10, 1)
 
-# print(" ")
+day = dt.datetime.today() + relativedelta(days=int(a[2]))
 
-# plot_option_prices(S=S, r=r, sigma=sigma, scale=scale, ticker=ticker, radius=5, length=10)
-
-# prices, call, put = compute_pnl()
-
-plot_pnl(100, 100, 10, 10)
+print(day.strftime('%Y-%m-%d'))

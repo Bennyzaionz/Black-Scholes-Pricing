@@ -49,10 +49,6 @@ def get_volatility(stock_data:pd.DataFrame, method:str="log"):
         return compute_ewma_volatility(stock_data, "std")
     elif method == "log ewma":
         return compute_ewma_volatility(stock_data, "log")
-    elif method == "garch":
-        return compute_garch_volatility(stock_data, "std")
-    elif method == "log garch":
-        return compute_garch_volatility(stock_data, "std")
 
     return -1
 
