@@ -1,8 +1,11 @@
 import yfinance as yf
 import datetime as dt
 import pandas as pd
+import numpy as np
+import streamlit as st
 from volatility_methods import compute_std_dev, compute_ewma_volatility
 
+@st.cache_data
 def ticker_exists(ticker_symbol):
 
     try:
@@ -13,6 +16,7 @@ def ticker_exists(ticker_symbol):
         raise NameError(f"----------Ticker {ticker_symbol} does not exist----------")
     return True  
 
+@st.cache_data
 def get_stock_data(ticker:str, start_date:dt.datetime):
     """
     returns pandas dataframe with Close, High, Low, Open, and Volume columns if ticker exists
@@ -33,6 +37,7 @@ def get_stock_data(ticker:str, start_date:dt.datetime):
 
     return stock_data
 
+@st.cache_data
 def get_volatility(stock_data:pd.DataFrame, method:str="log"):
     """
     returns best estimate for Black-Scholes volatility (i.e constant over time)
@@ -52,6 +57,7 @@ def get_volatility(stock_data:pd.DataFrame, method:str="log"):
 
     return -1
 
+@st.cache_data
 def get_risk_free_rate():
     """
     returns the risk free rate obtained from 3-month US t-bill
@@ -60,10 +66,11 @@ def get_risk_free_rate():
 
     print("Retrieving risk free rate from 3-month US t-bill\n")
 
-    rate = t_bill.history(period="1d")["Close"].iloc[-1]
+    rate = t_bill.history(period="5d")["Close"].iloc[-1]
 
     return rate / 100  # Convert from percent to decimal
 
+@st.cache_data
 def get_current_price(stock_data, ticker):
 
     print(f"Retreiving current price of {ticker}\n")
@@ -72,6 +79,7 @@ def get_current_price(stock_data, ticker):
 
     return current_price
 
+# @st.cache_data
 def get_bs_parameters(ticker:str='AAPL', volatility_method:str='log', time:int=1, output:bool=True):
     """
     Parameters:
@@ -104,25 +112,62 @@ def get_bs_parameters(ticker:str='AAPL', volatility_method:str='log', time:int=1
 
     return r, sigma, S
 
-# ticker = "AAPL"
+@st.cache_data
+def get_option_data(ticker):
+    
+    """
+    Returns:
+    expirations
+    call_prices
+    put_prices
+    """
 
-# start_date = dt.datetime.today() - dt.timedelta(days=10)
+    # select ticker and get expirations
+    underlying = yf.Ticker(ticker)
+    expirations = underlying.options
 
-# aapl_data = get_stock_data(ticker=ticker, start_date=start_date)
+    # initialize dictionary for call and put strikes and prices
+    call_data = {}
+    put_data = {}
+    strikes = {'call': {}, 'put':{}}
 
-# if aapl_data.empty:
+    for exp in expirations:
 
-#     print("please try again")
+        # get option chain at exp, keep strike and last price
+        chain = underlying.option_chain(exp)
+        calls = chain.calls[['strike', 'lastPrice']]
+        puts = chain.puts[['strike', 'lastPrice']]
 
-# else:
+        # Keep strikes that exist in both calls and puts for this expiration
+        call_strikes = set(calls['strike'])
+        put_strikes = set(puts['strike'])
 
-#     print(get_volatility(aapl_data, "std"))
+        # strikes = call_strikes & put_strikes
+        strikes['call'][exp] = call_strikes
+        strikes['put'][exp] = put_strikes
 
-#     print(get_volatility(aapl_data, "log"))
+        # store call and put data
+        call_data[exp] = calls.set_index('strike')['lastPrice']
+        put_data[exp] = puts.set_index('strike')['lastPrice']  
 
-#     print(get_volatility(aapl_data, "ewma"))
+    # get key for longest set of strikes
+    call_key = max(strikes['call'], key=len)
+    put_key = max(strikes['put'], key=len)
 
-#     print(get_volatility(aapl_data, "log ewma"))
+    # get longest set of strikes
+    call_strikes = strikes['call'][call_key]
+    put_strikes = strikes['put'][put_key]
 
-# print(get_bs_parameters())
+    # combine them to cover all possible strikes
+    combined_strikes = sorted(call_strikes | put_strikes)
 
+    call_prices = np.zeros((len(combined_strikes), len(expirations)))
+    put_prices = np.zeros((len(combined_strikes), len(expirations)))
+
+    for i, strike in enumerate(combined_strikes):
+        for j, exp in enumerate(expirations):
+
+            call_prices[i][j] = call_data[exp].get(strike, np.nan)
+            put_prices[i][j] = put_data[exp].get(strike, np.nan)
+
+    return call_prices, put_prices, combined_strikes, expirations

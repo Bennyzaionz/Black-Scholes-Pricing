@@ -1,7 +1,8 @@
 import streamlit as st
+import bisect
 import numpy as np
-from stock_data import get_bs_parameters
-from plots import plot_option_prices_fig, plot_pnl, plot_greek
+from stock_data import get_bs_parameters, get_option_data
+from plots import plot_BS_option_prices, plot_market_option_prices,plot_pnl, plot_greek
 
 # -----wide mode-----
 st.set_page_config(layout="wide")
@@ -49,12 +50,6 @@ st.sidebar.markdown("### Pricing Settings")
 
 st.sidebar.text_input('Ticker Symbol:', key='ticker', value='AAPL')
 
-radius = st.sidebar.slider('Price Radius', 3, 6)
-
-time_horizon = st.sidebar.slider('Time Horizon', 6, 12)
-
-scale = st.sidebar.selectbox('Time Scale for Expiration:', ['day', 'week', 'month', 'quarter', 'year'])
-
 volatility_method = st.sidebar.selectbox('Method to Compute Volatility:', ['std', 'log', 'ewma', 'log ewma'])
 
 r, sigma, S = get_bs_parameters(ticker=st.session_state.ticker, volatility_method=volatility_method, output=False)
@@ -66,6 +61,32 @@ valid_input = False if r == -1 else True
 if valid_input:
 
     # -----continue sidebar-----
+
+    # get market option price data
+    live_call_prices, live_put_prices, strikes, expirations = get_option_data(st.session_state.ticker)
+    num_expirations = len(expirations)
+    num_strikes = len(strikes)
+
+    strike_lower_index = bisect.bisect_right(strikes, S) - 1
+
+    # sliders for expiration and strike
+    expiration_min, expiration_max = st.sidebar.select_slider('Range of Expirations', 
+                                                              options=expirations, 
+                                                              value=(expirations[0], expirations[5]))
+    
+    strike_min, strike_max = st.sidebar.select_slider('Range of Strikes',
+                                                      options=strikes,
+                                                      value=(strikes[strike_lower_index - 2], strikes[strike_lower_index + 4]))
+    
+    # get list of strikes and expirations for plotting
+    exp_start_index = expirations.index(expiration_min)
+    exp_end_index = expirations.index(expiration_max)
+
+    strike_start_index = strikes.index(strike_min)
+    strike_end_index = strikes.index(strike_max)
+
+    expiration_range = expirations[exp_start_index:exp_end_index]
+    strike_range = strikes[strike_start_index:strike_end_index]
 
     # Greeks Settings
 
@@ -98,33 +119,44 @@ if valid_input:
     st.write(f"Underlying volatility: {sigma:.4f}" )
     st.write(f"Current Price of {st.session_state.ticker}: ${S:.2f}")
 
-    # -----plot prices-----
+    # -----plot theoretical prices-----
 
-    price_fig, call_prices, put_prices, strike_range, expiration_range = plot_option_prices_fig(S, 0, r, sigma, scale, time_horizon, radius, st.session_state.ticker)
+    price_fig, call_prices, put_prices = plot_BS_option_prices(S, 0, r, sigma, st.session_state.ticker, strike_range, expiration_range)
 
     st.pyplot(price_fig)
+
+    # -----plot market prices-----
+    market_fig = plot_market_option_prices(live_call_prices[strike_start_index:strike_end_index, exp_start_index:exp_end_index], 
+                                           live_put_prices[strike_start_index:strike_end_index, exp_start_index:exp_end_index], 
+                                           strike_range, 
+                                           expiration_range, 
+                                           st.session_state.ticker)
+    
+    st.pyplot(market_fig)
 
     # continue focus settings
 
     if single_view:
 
-        K = st.sidebar.select_slider('Strike', options=strike_range.tolist())
+        K = st.sidebar.select_slider('Strike', options=strike_range)
 
-        T = st.sidebar.select_slider(f"Expiration in {scale}s", options=[i + 1 for i in range(len(expiration_range))])
+        T = st.sidebar.select_slider(f"Expiration", options=expiration_range)
 
-        strike_index = np.where(strike_range == K)[0][0]
+        strike_index = strike_range.index(K)
 
-        call_price = call_prices[strike_index][T]
+        expiration_index = expiration_range.index(T)
 
-        put_price = put_prices[strike_index][T]
+        call_price = call_prices[strike_index][expiration_index]
+
+        put_price = put_prices[strike_index][expiration_index]
 
     # -----plot greeks-----
 
-    delta_fig, delta_call, delta_put = plot_greek("Delta", S, 0, r, sigma, strike_range, expiration_range, scale, st.session_state.ticker)
-    gamma_fig, gamma_call, gamma_put = plot_greek("Gamma", S, 0, r, sigma, strike_range, expiration_range, scale, st.session_state.ticker)
-    theta_fig, theta_call, theta_put = plot_greek("Theta", S, 0, r, sigma, strike_range, expiration_range, scale, st.session_state.ticker)
-    vega_fig, vega_call, vega_put = plot_greek("Vega", S, 0, r, sigma, strike_range, expiration_range, scale, st.session_state.ticker)
-    rho_fig, rho_call, rho_put = plot_greek("Rho", S, 0, r, sigma, strike_range, expiration_range, scale, st.session_state.ticker)
+    delta_fig, delta_call, delta_put = plot_greek("Delta", S, 0, r, sigma, strike_range, expiration_range, st.session_state.ticker)
+    gamma_fig, gamma_call, gamma_put = plot_greek("Gamma", S, 0, r, sigma, strike_range, expiration_range, st.session_state.ticker)
+    theta_fig, theta_call, theta_put = plot_greek("Theta", S, 0, r, sigma, strike_range, expiration_range, st.session_state.ticker)
+    vega_fig, vega_call, vega_put = plot_greek("Vega", S, 0, r, sigma, strike_range, expiration_range, st.session_state.ticker)
+    rho_fig, rho_call, rho_put = plot_greek("Rho", S, 0, r, sigma, strike_range, expiration_range, st.session_state.ticker)
 
     if show_delta or show_gamma or show_rho or show_theta or show_vega:
         st.markdown("---")
@@ -157,22 +189,22 @@ if valid_input:
         with col_call:
             st.markdown("### Call")
             st.write(f"Price: ${call_price:.4f}")
-            st.markdown(f"Δ<sub>c</sub> = {delta_call[strike_index][T]:.4f}", unsafe_allow_html=True)
-            st.markdown(f"Γ<sub>c</sub> = {gamma_call[strike_index][T]:.4f}", unsafe_allow_html=True)
-            st.markdown(f"Θ<sub>c</sub> = {theta_call[strike_index][T]:.4f}", unsafe_allow_html=True)
-            st.markdown(f"ν<sub>c</sub> = {vega_call[strike_index][T]:.4f}", unsafe_allow_html=True)
-            st.markdown(f"ρ<sub>c</sub> = {rho_call[strike_index][T]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"Δ<sub>c</sub> = {delta_call[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"Γ<sub>c</sub> = {gamma_call[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"Θ<sub>c</sub> = {theta_call[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"ν<sub>c</sub> = {vega_call[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"ρ<sub>c</sub> = {rho_call[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
 
         with col_put:
             st.markdown("### Put")
             st.write(f"Price: ${put_price:.4f}")
-            st.markdown(f"Δ<sub>c</sub> = {delta_put[strike_index][T]:.4f}", unsafe_allow_html=True)
-            st.markdown(f"Γ<sub>c</sub> = {gamma_put[strike_index][T]:.4f}", unsafe_allow_html=True)
-            st.markdown(f"Θ<sub>c</sub> = {theta_put[strike_index][T]:.4f}", unsafe_allow_html=True)
-            st.markdown(f"ν<sub>c</sub> = {vega_put[strike_index][T]:.4f}", unsafe_allow_html=True)
-            st.markdown(f"ρ<sub>c</sub> = {rho_put[strike_index][T]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"Δ<sub>c</sub> = {delta_put[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"Γ<sub>c</sub> = {gamma_put[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"Θ<sub>c</sub> = {theta_put[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"ν<sub>c</sub> = {vega_put[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
+            st.markdown(f"ρ<sub>c</sub> = {rho_put[strike_index][expiration_index]:.4f}", unsafe_allow_html=True)
 
-        pnl_fig = plot_pnl(K, T, scale, S, call_price, put_price)
+        pnl_fig = plot_pnl(K, T, S, call_price, put_price)
         st.pyplot(pnl_fig)
 
 else:

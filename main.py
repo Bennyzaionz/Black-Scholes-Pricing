@@ -1,5 +1,5 @@
 from stock_data import get_bs_parameters
-# from plots import plot_option_prices, plot_pnl
+# from plots import plot_BS_option_prices, plot_pnl
 from options import compute_pnl
 import yfinance as yf
 import datetime as dt
