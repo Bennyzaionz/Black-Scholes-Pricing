@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 import numpy as np
 # import datetime as dt
 # from dateutil.relativedelta import relativedelta
@@ -64,6 +65,17 @@ from date_functions import str_date_to_years
 
 #     return relativedelta(years=num)
 
+def text_color(matrix, value, a):
+    
+    # between 0 and 1, coefficient reps the percentage of range (min - max) that the text is white for
+    # a = 0.8
+
+    # set dynamic threshold for color of text (display dark text on light background and visa versa)
+    thresh = (1 - a) * np.nanmin(matrix) + a * np.nanmax(matrix)
+    color = 'white' if value < thresh else 'black'
+
+    return color
+
 def get_option_matrices_heatmap_fig(call_matrix, put_matrix, strike_range, expiration_range, call_title, put_title):
 
     """
@@ -86,42 +98,46 @@ def get_option_matrices_heatmap_fig(call_matrix, put_matrix, strike_range, expir
     fig - matplotlib figure with call and put matrices plotted on a heat map with colorbars
     """
 
-    height = 6
-    width = 2*height
     colorbar_height = 0.72
 
-    if len(expiration_range) < 9:
-        fontsize = 10
-    elif len(expiration_range) < 10:
-        fontsize = 8
-    else:
-        fontsize = 6
+    height = max(len(strike_range), 6)
+    width = max(2*len(expiration_range), 12)
+
+    fontsize = 11
 
     fig, (ax_call, ax_put) = plt.subplots(1, 2, figsize=(width, height))
 
     # plot call and put prices with heatmap
 
-    color_scheme = 'plasma'
-    im_call = ax_call.imshow(call_matrix, cmap=color_scheme)
-    im_put = ax_put.imshow(put_matrix, cmap=color_scheme)
+    # color_scheme = 'PiYG_r'
+
+    colors = ["limegreen", "white", "red"]
+
+    cmap_vibrant = LinearSegmentedColormap.from_list("green_red_vibrant", colors)
+
+    cmap_vibrant = cmap_vibrant.copy()
+    cmap_vibrant.set_bad(color='black')
+
+    im_call = ax_call.imshow(call_matrix, cmap=cmap_vibrant)
+    im_put = ax_put.imshow(put_matrix, cmap=cmap_vibrant)
 
     for (i, strike) in enumerate(strike_range):
         for (j, expiration) in enumerate(expiration_range):
 
-            # between 0 and 1, coefficient reps the percentage of range (min - max) that the text is white for
-            a = 0.8
+            a = 0
 
-            # set dynamic threshold for color of text (display dark text on light background and visa versa)
-            thresh = (1 - a) * np.nanmin(call_matrix) + a * np.nanmax(call_matrix)
-            color = 'white' if call_matrix[i][j] < thresh else 'black'
+            if np.isnan(call_matrix[i][j]):
+                ax_call.text(j, i, "Not \nAvailable", ha='center', va='center', color='white', fontsize=8)
+            else:
+                call_color = text_color(call_matrix, call_matrix[i][j], a)
+                ax_call.text(j, i, f"{call_matrix[i][j]:.2f}", ha='center', va='center', color=call_color, fontsize=fontsize)
 
-            ax_call.text(j, i, f"{call_matrix[i][j]:.2f}", ha='center', va='center', color=color, fontsize=fontsize)
+            if np.isnan(put_matrix[i][j]):
+                ax_put.text(j, i, "Not \nAvailable", ha='center', va='center', color='white', fontsize=8)
+            else:
+                put_color = text_color(put_matrix, put_matrix[i][j], a)
+                ax_put.text(j, i, f"{put_matrix[i][j]:.2f}", ha='center', va='center', color=put_color, fontsize=fontsize)
 
-            # set dynamic threshold for color of text (display dark text on light background and visa versa)
-            thresh = (1 - a) * np.nanmin(put_matrix) + a * np.nanmax(put_matrix)
-            color = 'white' if put_matrix[i][j] < thresh else 'black'
-
-            ax_put.text(j, i, f"{put_matrix[i][j]:.2f}", ha='center', va='center', color=color, fontsize=fontsize)
     
     # call labels
 
@@ -152,6 +168,8 @@ def get_option_matrices_heatmap_fig(call_matrix, put_matrix, strike_range, expir
 def plot_BS_option_prices(S:float=100, t:float=0, r:float=0.05, sigma:float=0.05, ticker:str='AAPL', strike_range:list=[], expiration_range:list=[]):
 
     expiration_range_years = str_date_to_years(expiration_range)
+
+    # print(expiration_range_years)
     
     call_prices, put_prices = compute_option_prices(strike_range, expiration_range_years, S, t, r, sigma)
 
@@ -170,6 +188,20 @@ def plot_market_option_prices(call_prices, put_prices, strike_range, expiration_
     put_title = f"Market Prices for Put Options on {ticker} ($)"
 
     fig = get_option_matrices_heatmap_fig(call_prices, put_prices, strike_range, expiration_range, call_title, put_title)
+
+    return fig
+
+def plot_BS_option_error(market_call_prices, market_put_prices, BS_call_prices, BS_put_prices, strike_range, expiration_range, ticker):
+
+    call_error = BS_call_prices - market_call_prices
+
+    put_error = BS_put_prices - market_put_prices
+
+    call_title = f"Model Erorr for Call Options on {ticker} ($)"
+
+    put_title = f"Model Erorr for Put Options on {ticker} ($)"
+
+    fig = get_option_matrices_heatmap_fig(call_error, put_error, strike_range, expiration_range, call_title, put_title)
 
     return fig
 

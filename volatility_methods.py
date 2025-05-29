@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
+import streamlit as st
 
+@st.cache_data
 def compute_returns(stock_data, method:str="log"):
     
     # use a new df to avoid changing original stock_data since pd.DataFrame() get passed by reference
@@ -15,6 +17,7 @@ def compute_returns(stock_data, method:str="log"):
     
     return  returns_df         
 
+@st.cache_data
 def compute_std_dev(stock_data, method:str="log"):
 
     returns = compute_returns(stock_data, method)
@@ -29,6 +32,7 @@ def compute_std_dev(stock_data, method:str="log"):
 
     return annualized_volatility
 
+@st.cache_data
 def compute_ewma_volatility(stock_data, method:str="log"):
     
     returns = compute_returns(stock_data, method)

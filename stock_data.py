@@ -79,7 +79,7 @@ def get_current_price(stock_data, ticker):
 
     return current_price
 
-# @st.cache_data
+@st.cache_data
 def get_bs_parameters(ticker:str='AAPL', volatility_method:str='log', time:int=1, output:bool=True):
     """
     Parameters:

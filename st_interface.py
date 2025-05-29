@@ -2,7 +2,8 @@ import streamlit as st
 import bisect
 import numpy as np
 from stock_data import get_bs_parameters, get_option_data
-from plots import plot_BS_option_prices, plot_market_option_prices,plot_pnl, plot_greek
+from plots import plot_BS_option_prices, plot_market_option_prices, plot_BS_option_error, plot_greek, plot_pnl
+from price_filter import remove_majority_na
 
 # -----wide mode-----
 st.set_page_config(layout="wide")
@@ -67,26 +68,50 @@ if valid_input:
     num_expirations = len(expirations)
     num_strikes = len(strikes)
 
-    strike_lower_index = bisect.bisect_right(strikes, S) - 1
+    exp_value = (expirations[0], expirations[-1]) if len(expirations) < 7 else (expirations[0], expirations[6])
+
+    # print("length:", len(expirations))
+    # print(expirations)
+
+    # if len(expirations) < 5:
+    #     exp_value = (expirations[0], expirations[-1])
+    # else:
+    #     exp_value = (expirations[0], expirations[5])
 
     # sliders for expiration and strike
     expiration_min, expiration_max = st.sidebar.select_slider('Range of Expirations', 
                                                               options=expirations, 
-                                                              value=(expirations[0], expirations[5]))
+                                                              value=exp_value)
+    
+    # get list of strikes and expirations for plotting
+    exp_start_index = expirations.index(expiration_min)
+    exp_end_index = expirations.index(expiration_max)
+    
+    strike_lower_index = bisect.bisect_right(strikes, S) - 1
     
     strike_min, strike_max = st.sidebar.select_slider('Range of Strikes',
                                                       options=strikes,
                                                       value=(strikes[strike_lower_index - 2], strikes[strike_lower_index + 4]))
     
-    # get list of strikes and expirations for plotting
-    exp_start_index = expirations.index(expiration_min)
-    exp_end_index = expirations.index(expiration_max)
-
+    remove_na = st.sidebar.checkbox("Remove Strikes Without Listed Prices")
+    
     strike_start_index = strikes.index(strike_min)
     strike_end_index = strikes.index(strike_max)
 
     expiration_range = expirations[exp_start_index:exp_end_index]
     strike_range = strikes[strike_start_index:strike_end_index]
+
+    if remove_na:
+        market_call_prices, market_put_prices, strike_range = remove_majority_na(live_call_prices, 
+                                                                                live_put_prices, 
+                                                                                exp_start_index, 
+                                                                                exp_end_index, 
+                                                                                strike_start_index, 
+                                                                                strike_end_index, 
+                                                                                strike_range)
+    else:
+        market_call_prices = live_call_prices[strike_start_index:strike_end_index, exp_start_index:exp_end_index]
+        market_put_prices = live_put_prices[strike_start_index:strike_end_index, exp_start_index:exp_end_index]
 
     # Greeks Settings
 
@@ -123,16 +148,23 @@ if valid_input:
 
     price_fig, call_prices, put_prices = plot_BS_option_prices(S, 0, r, sigma, st.session_state.ticker, strike_range, expiration_range)
 
+    # with st.container(height=600):
     st.pyplot(price_fig)
 
     # -----plot market prices-----
-    market_fig = plot_market_option_prices(live_call_prices[strike_start_index:strike_end_index, exp_start_index:exp_end_index], 
-                                           live_put_prices[strike_start_index:strike_end_index, exp_start_index:exp_end_index], 
-                                           strike_range, 
-                                           expiration_range, 
-                                           st.session_state.ticker)
+
+    # market_call_prices = live_call_prices[strike_start_index:strike_end_index, exp_start_index:exp_end_index]
+    # market_put_prices = live_put_prices[strike_start_index:strike_end_index, exp_start_index:exp_end_index]
+
+    market_fig = plot_market_option_prices(market_call_prices, market_put_prices, strike_range, expiration_range, st.session_state.ticker)
     
     st.pyplot(market_fig)
+
+    # -----plot model error-----
+
+    error_fig = plot_BS_option_error(market_call_prices, market_put_prices, call_prices, put_prices, strike_range, expiration_range, st.session_state.ticker)
+
+    st.pyplot(error_fig)
 
     # continue focus settings
 

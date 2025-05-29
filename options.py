@@ -15,7 +15,6 @@ def euro_call_price(S:float=100, K:float=100, T:float=1, t:float=0, r:float=0.05
 
     """
     Parameters:
-
     S : float - current underlying stock price
     K : float - strike price
     T : float - time to maturity in years
@@ -24,7 +23,6 @@ def euro_call_price(S:float=100, K:float=100, T:float=1, t:float=0, r:float=0.05
     sigma : float - volatility
 
     Returns:
-
     price : float - call option price
     """
 
@@ -130,13 +128,13 @@ def compute_greek_matrices(greek_name, S, r, sigma, strike_range, expiration_ran
 
     return greeks_call, greeks_put
 
-def compute_call_pnl(K, S, call_price, prices):
+def compute_call_pnl(K, call_price, prices):
     
     pnl = np.maximum(0, prices - K) - call_price
 
     return pnl
 
-def compute_put_pnl(K, S, put_price, prices):
+def compute_put_pnl(K, put_price, prices):
 
     pnl = np.maximum(0, K - prices) - put_price
 
@@ -154,8 +152,8 @@ def compute_pnl(K:float=100, S:float=100, call_price:float=0, put_price:float=0)
 
     prices = prices = np.arange(0, 2*S + 5, 5)
 
-    call_pnl = compute_call_pnl(K, S, call_price, prices)
+    call_pnl = compute_call_pnl(K, call_price, prices)
 
-    put_pnl = compute_put_pnl(K, S, put_price, prices)
+    put_pnl = compute_put_pnl(K, put_price, prices)
 
     return prices, call_pnl, put_pnl

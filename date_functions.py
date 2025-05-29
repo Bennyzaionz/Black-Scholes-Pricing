@@ -1,5 +1,7 @@
 import datetime as dt
+import streamlit as st
 
+@st.cache_data
 def str_date_to_years(expiration_range:str):
 
     """
@@ -12,7 +14,9 @@ def str_date_to_years(expiration_range:str):
 
         exp_date = dt.datetime.strptime(exp, "%Y-%m-%d")
 
-        delta = (exp_date - dt.datetime.today()).days / 365.25
+        today = dt.datetime.combine(dt.date.today(), dt.time.min)
+
+        delta = (exp_date - today).days / 365.25
         
         expiration_years.append(delta)
     
