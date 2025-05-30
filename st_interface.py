@@ -93,7 +93,7 @@ if valid_input:
                                                       options=strikes,
                                                       value=(strikes[strike_lower_index - 2], strikes[strike_lower_index + 4]))
     
-    remove_na = st.sidebar.checkbox("Remove Strikes Without Listed Prices")
+    remove_na = st.sidebar.checkbox("Omit Strikes Without Listed Prices")
     
     strike_start_index = strikes.index(strike_min)
     strike_end_index = strikes.index(strike_max)
